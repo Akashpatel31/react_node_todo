@@ -1,20 +1,44 @@
-import React from 'react';
+// CompletedTodos.js
+import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { toggleTodo, removeTodo } from '../redux/actions';
+import { fetchTodosRequest, fetchTodosSuccess, fetchTodosFailure, toggleTodo, removeTodo } from '../redux/actions';
+import { toggleTodo as toggleTodoApi, removeTodo as removeTodoApi } from '../api'; // Import from api.js
 
 const CompletedTodos = () => {
   const dispatch = useDispatch();
   const todos = useSelector((state) => state.data.todos.filter(todo => todo.completed));
 
-  const handleToggleTodo = (id) => {
-    dispatch(toggleTodo({
-      id,
-      completed: false,
-    }));
+  useEffect(() => {
+    // Fetch all todos on component mount (if needed)
+    const loadTodos = async () => {
+      dispatch(fetchTodosRequest());
+      try {
+        const todosData = await fetchTodos();  // Use fetchTodos from api.js
+        dispatch(fetchTodosSuccess(todosData));
+      } catch (error) {
+        dispatch(fetchTodosFailure(error.message));
+      }
+    };
+
+    loadTodos();
+  }, [dispatch]);
+
+  const handleToggleTodo = async (id) => {
+    try {
+      const toggledTodo = await toggleTodoApi(id);  // Use the toggleTodo from api.js
+      dispatch(toggleTodo(toggledTodo));  // Dispatch the updated todo to Redux store
+    } catch (error) {
+      console.error('Error toggling todo:', error.message);
+    }
   };
 
-  const handleRemoveTodo = (id) => {
-    dispatch(removeTodo(id));
+  const handleRemoveTodo = async (id) => {
+    try {
+      await removeTodoApi(id);  // Use removeTodo from api.js
+      dispatch(removeTodo(id));  // Dispatch the removal to Redux store
+    } catch (error) {
+      console.error('Error removing todo:', error.message);
+    }
   };
 
   return (

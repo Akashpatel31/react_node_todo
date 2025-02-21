@@ -1,35 +1,37 @@
+// MainComponent.js
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import axios from 'axios';
 import { fetchTodosRequest, fetchTodosSuccess, fetchTodosFailure, addTodo, removeTodo, toggleTodo } from '../redux/actions';
-import './mainComponent.css'; // Ensure the correct path and filename
+import { fetchTodos, addTodo as addTodoApi, removeTodo as removeTodoApi, toggleTodo as toggleTodoApi } from '../api'; // Import from api.js
+import { trainModel, predictTasks } from '../ai'; // Change suggestTask to predictTasks
+import './mainComponent.css';
 
 const MainComponent = () => {
   const dispatch = useDispatch();
   const { todos, loading, error } = useSelector((state) => state.data);
   const [newTodo, setNewTodo] = useState('');
+  const [suggestedTask, setSuggestedTask] = useState('');
 
   useEffect(() => {
-    const fetchTodos = async () => {
+    const loadTodos = async () => {
       dispatch(fetchTodosRequest());
       try {
-        const response = await axios.get('http://localhost:5000/todos');
-        console.log('Received response from /todos:', response.data);
-        dispatch(fetchTodosSuccess(response.data));
+        const todosData = await fetchTodos();  // Use the fetchTodos from api.js
+        dispatch(fetchTodosSuccess(todosData));
+        await trainModel(todosData); // Train AI model with existing todos
       } catch (error) {
-        console.error('Error fetching todos:', error.message);
         dispatch(fetchTodosFailure(error.message));
       }
     };
 
-    fetchTodos();
+    loadTodos();
   }, [dispatch]);
 
   const handleAddTodo = async () => {
     const todo = { id: Date.now().toString(), text: newTodo, completed: false };
     try {
-      const response = await axios.post('http://localhost:5000/todos', todo);
-      dispatch(addTodo(response.data));
+      const addedTodo = await addTodoApi(todo);  // Use the addTodo from api.js
+      dispatch(addTodo(addedTodo));
       setNewTodo('');
     } catch (error) {
       console.error('Error adding todo:', error.message);
@@ -38,7 +40,7 @@ const MainComponent = () => {
 
   const handleRemoveTodo = async (id) => {
     try {
-      await axios.delete(`http://localhost:5000/todos/${id}`);
+      await removeTodoApi(id);  // Use removeTodo from api.js
       dispatch(removeTodo(id));
     } catch (error) {
       console.error('Error removing todo:', error.message);
@@ -47,11 +49,16 @@ const MainComponent = () => {
 
   const handleToggleTodo = async (id) => {
     try {
-      const response = await axios.patch(`http://localhost:5000/todos/${id}`);
-      dispatch(toggleTodo(response.data));
+      const toggledTodo = await toggleTodoApi(id);  // Use toggleTodo from api.js
+      dispatch(toggleTodo(toggledTodo));
     } catch (error) {
       console.error('Error toggling todo:', error.message);
     }
+  };
+
+  const handleSuggestTask = async () => {
+    const suggestion = await suggestTask();
+    setSuggestedTask(suggestion);
   };
 
   return (
@@ -68,6 +75,8 @@ const MainComponent = () => {
         />
         <button onClick={handleAddTodo}>Add Todo</button>
       </div>
+      {suggestedTask && <p className="suggestion">Suggested Task: {suggestedTask}</p>}
+      <button onClick={handleSuggestTask}>Get Task Suggestion</button>
       <ul className="todo-list">
         {todos.map((todo) => (
           <li key={todo.id} className={`todo-item ${todo.completed ? 'completed' : ''}`}>
