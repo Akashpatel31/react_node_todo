@@ -1,9 +1,8 @@
-// MainComponent.js
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchTodosRequest, fetchTodosSuccess, fetchTodosFailure, addTodo, removeTodo, toggleTodo } from '../redux/actions';
-import { fetchTodos, addTodo as addTodoApi, removeTodo as removeTodoApi, toggleTodo as toggleTodoApi } from '../api'; // Import from api.js
-import { trainModel, predictTasks } from '../ai'; // Change suggestTask to predictTasks
+import { fetchTodosRequest, fetchTodosSuccess, fetchTodosFailure, addTodo } from '../redux/actions';
+import { fetchTodos, addTodo as addTodoApi } from '../api'; // Import from api.js
+import { trainModel, predictTasks } from '../ai'; // Use predictTasks for task suggestion
 import './mainComponent.css';
 
 const MainComponent = () => {
@@ -11,6 +10,7 @@ const MainComponent = () => {
   const { todos, loading, error } = useSelector((state) => state.data);
   const [newTodo, setNewTodo] = useState('');
   const [suggestedTask, setSuggestedTask] = useState('');
+  const [model, setModel] = useState(null);  // State to hold the trained model
 
   useEffect(() => {
     const loadTodos = async () => {
@@ -18,7 +18,9 @@ const MainComponent = () => {
       try {
         const todosData = await fetchTodos();  // Use the fetchTodos from api.js
         dispatch(fetchTodosSuccess(todosData));
-        await trainModel(todosData); // Train AI model with existing todos
+        const trainedModel = await trainModel(todosData); // Train AI model with existing todos
+        setModel(trainedModel); // Set the trained model in state
+        console.log("Model trained successfully.");
       } catch (error) {
         dispatch(fetchTodosFailure(error.message));
       }
@@ -26,6 +28,7 @@ const MainComponent = () => {
 
     loadTodos();
   }, [dispatch]);
+  
 
   const handleAddTodo = async () => {
     const todo = { id: Date.now().toString(), text: newTodo, completed: false };
@@ -38,28 +41,23 @@ const MainComponent = () => {
     }
   };
 
-  const handleRemoveTodo = async (id) => {
-    try {
-      await removeTodoApi(id);  // Use removeTodo from api.js
-      dispatch(removeTodo(id));
-    } catch (error) {
-      console.error('Error removing todo:', error.message);
-    }
-  };
-
-  const handleToggleTodo = async (id) => {
-    try {
-      const toggledTodo = await toggleTodoApi(id);  // Use toggleTodo from api.js
-      dispatch(toggleTodo(toggledTodo));
-    } catch (error) {
-      console.error('Error toggling todo:', error.message);
-    }
-  };
-
   const handleSuggestTask = async () => {
-    const suggestion = await suggestTask();
-    setSuggestedTask(suggestion);
-  };
+    if (model && todos.length > 0) {
+        // Generate task suggestion using the trained model and current todos
+        const suggestion = await predictTasks(model, todos);
+        if (suggestion) {
+            setSuggestedTask(suggestion.text);  // Show the most relevant task
+            console.log("Predicted Tasks: ", suggestion);  // Log the suggestion to the console
+        } else {
+            setSuggestedTask("No suggestions available.");
+        }
+    } else {
+        console.error('Model not trained or no todos available.');
+    }
+};
+
+  
+  
 
   return (
     <div className="main-component">
@@ -77,16 +75,7 @@ const MainComponent = () => {
       </div>
       {suggestedTask && <p className="suggestion">Suggested Task: {suggestedTask}</p>}
       <button onClick={handleSuggestTask}>Get Task Suggestion</button>
-      <ul className="todo-list">
-        {todos.map((todo) => (
-          <li key={todo.id} className={`todo-item ${todo.completed ? 'completed' : ''}`}>
-            <span onClick={() => handleToggleTodo(todo.id)}>
-              {todo.text}
-            </span>
-            <button onClick={() => handleRemoveTodo(todo.id)}>Remove</button>
-          </li>
-        ))}
-      </ul>
+      {/* Removed the Todo List */}
     </div>
   );
 };
