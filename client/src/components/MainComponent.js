@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { io } from 'socket.io-client';
 import { fetchTodosRequest, fetchTodosSuccess, fetchTodosFailure, addTodo } from '../redux/actions';
 import { fetchTodos, addTodo as addTodoApi } from '../api'; // Import from api.js
 import { trainModel, predictTasks } from '../ai'; // Use predictTasks for task suggestion
 import './mainComponent.css';
+
 
 const MainComponent = () => {
   const dispatch = useDispatch();
